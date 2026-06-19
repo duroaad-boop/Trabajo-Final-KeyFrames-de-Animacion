@@ -1,0 +1,180 @@
+// =============================================
+//  main.cpp — Punto de entrada del programa
+// =============================================
+
+#include <iostream>
+#include <vector>
+#include <limits>
+#include "include/cliente.h"
+#include "include/archivos.h"
+#include "include/crud.h"
+#include "include/busqueda.h"
+#include "include/ordenacion.h"
+#include "include/reporte.h"
+using namespace std;
+
+const string ARCHIVO_DATOS = "data/animaciones.csv";
+
+void limpiarBuffer() {
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
+void mostrarBienvenida() {
+    cout << "\n";
+    cout << "  ╔═══════════════════════════════════════════════════════╗\n";
+    cout << "  ║   GESTOR DE ESCENAS Y KEYFRAMES DE ANIMACION         ║\n";
+    cout << "  ║   Programacion I - SIS-112 | UCB San Pablo | 2026    ║\n";
+    cout << "  ╚═══════════════════════════════════════════════════════╝\n\n";
+}
+
+void mostrarMenu() {
+    cout << "\n";
+    cout << "  +----------------------------------------------------+\n";
+    cout << "  |                MENU PRINCIPAL                      |\n";
+    cout << "  +----------------------------------------------------+\n";
+    cout << "  |  -- CRUD --                                        |\n";
+    cout << "  |   1.  Agregar keyframe                             |\n";
+    cout << "  |   2.  Eliminar keyframe                            |\n";
+    cout << "  |   3.  Modificar keyframe                           |\n";
+    cout << "  |   4.  Listar todos los keyframes                   |\n";
+    cout << "  |   5.  Listar por escena                            |\n";
+    cout << "  |                                                    |\n";
+    cout << "  |  -- ORDENAMIENTO --                                |\n";
+    cout << "  |   6.  Ordenar por frame (Bubble Sort)              |\n";
+    cout << "  |   7.  Reporte comparativo [Req.3 - 15pts]          |\n";
+    cout << "  |       Bubble Sort vs Merge Sort con metricas       |\n";
+    cout << "  |                                                    |\n";
+    cout << "  |  -- BUSQUEDA --                                    |\n";
+    cout << "  |   8.  Buscar por objeto (secuencial)               |\n";
+    cout << "  |   9.  Buscar por frame  [Req.4 - 15pts]            |\n";
+    cout << "  |       Binaria iterativa vs recursiva               |\n";
+    cout << "  |                                                    |\n";
+    cout << "  |  -- ARCHIVOS Y REPORTES --                         |\n";
+    cout << "  |  10.  Guardar en CSV                               |\n";
+    cout << "  |  11.  Ver contenido del CSV                        |\n";
+    cout << "  |  12.  Intercalar dos archivos CSV                  |\n";
+    cout << "  |  13.  Generar reporte PDF [Req.5b - 10pts]         |\n";
+    cout << "  |                                                    |\n";
+    cout << "  |   0.  Salir                                        |\n";
+    cout << "  +----------------------------------------------------+\n";
+    cout << "  Opcion: ";
+}
+
+void menuIntercalar() {
+    string a1, a2, res;
+    cout << "\n  === INTERCALACION DE ARCHIVOS ===\n";
+    cout << "  [!] Ambos archivos deben estar ordenados por frame.\n";
+    cout << "  Archivo 1 (origen): "; cin >> a1;
+    cout << "  Archivo 2 (origen): "; cin >> a2;
+    cout << "  Archivo resultado : "; cin >> res;
+
+    vector<Keyframe> v1, v2, vRes;
+    cargarKeyframes(v1, a1);
+    cargarKeyframes(v2, a2);
+
+    int i = 0, j = 0;
+    while (i < (int)v1.size() && j < (int)v2.size()) {
+        if (v1[i].frame <= v2[j].frame) { vRes.push_back(v1[i]); i++; }
+        else                            { vRes.push_back(v2[j]); j++; }
+    }
+    while (i < (int)v1.size()) { vRes.push_back(v1[i]); i++; }
+    while (j < (int)v2.size()) { vRes.push_back(v2[j]); j++; }
+    for (int k = 0; k < (int)vRes.size(); k++) vRes[k].id = k + 1;
+
+    guardarKeyframes(vRes, res);
+    cout << "  Resultado: " << vRes.size() << " keyframes en '"
+         << res << "'.\n";
+}
+
+int main() {
+    vector<Keyframe> keyframes;
+    ReporteComparativo ultimoReporte;  // guarda el ultimo reporte generado
+    int opcion = -1;
+
+    mostrarBienvenida();
+
+    cargarKeyframes(keyframes, ARCHIVO_DATOS);
+    seedDatos(keyframes, ARCHIVO_DATOS);
+
+    do {
+        mostrarMenu();
+        cin >> opcion;
+
+        if (cin.fail()) {
+            cin.clear(); limpiarBuffer();
+            cout << "  [Error] Ingresa un numero.\n";
+            continue;
+        }
+
+        switch (opcion) {
+
+            // ── CRUD ──────────────────────────────────────────
+            case 1:  agregarKeyframe(keyframes);        break;
+            case 2:  eliminarKeyframe(keyframes);       break;
+            case 3:  modificarKeyframe(keyframes);      break;
+            case 4:  listarTodos(keyframes);            break;
+            case 5:  listarPorEscena(keyframes);        break;
+
+            // ── Ordenamiento ──────────────────────────────────
+            case 6: {
+                MetricaOrden m = bubbleSortConMetrica(keyframes);
+                cout << "  [OK] Timeline ordenada por frame.\n";
+                cout << "  Comparaciones: " << m.comparaciones
+                     << "  |  Intercambios: " << m.intercambios << "\n";
+                break;
+            }
+            case 7: {
+                // Req. 3 — Reporte comparativo (guarda para el PDF)
+                ultimoReporte = reporteComparativoOrdenacion(keyframes);
+                mostrarReporteOrdenacion(ultimoReporte);
+                break;
+            }
+
+            // ── Busqueda ──────────────────────────────────────
+            case 8: {
+                cout << "\n  Nombre del objeto a buscar: ";
+                string obj; cin >> obj;
+                buscarPorObjeto(keyframes, obj);
+                break;
+            }
+            case 9: {
+                // Req. 4 — Binaria iterativa vs recursiva
+                menuBusquedaBinaria(keyframes);
+                break;
+            }
+
+            // ── Archivos y reportes ────────────────────────────
+            case 10: guardarKeyframes(keyframes, ARCHIVO_DATOS); break;
+            case 11: mostrarArchivoCSV(ARCHIVO_DATOS);           break;
+            case 12: menuIntercalar();                           break;
+            case 13: {
+                // Req. 5b — Generar reporte PDF
+                // Si aun no se ejecuto el reporte comparativo,
+                // generarlo automaticamente para incluirlo en el PDF
+                if (ultimoReporte.ganador.empty()) {
+                    cout << "  [Info] Generando metricas de ordenacion...\n";
+                    ultimoReporte = reporteComparativoOrdenacion(keyframes);
+                }
+                menuGenerarReporte(keyframes, ultimoReporte);
+                break;
+            }
+
+            // ── Salir ─────────────────────────────────────────
+            case 0: {
+                char resp;
+                cout << "\n  Guardar antes de salir? (s/n): ";
+                cin >> resp;
+                if (resp == 's' || resp == 'S')
+                    guardarKeyframes(keyframes, ARCHIVO_DATOS);
+                cout << "\n  Hasta luego!\n\n";
+                break;
+            }
+
+            default:
+                cout << "  [Error] Opcion invalida (0-13).\n";
+        }
+
+    } while (opcion != 0);
+
+    return 0;
+}
