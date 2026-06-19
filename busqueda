@@ -1,0 +1,212 @@
+#include "../include/busqueda.h"
+#include <iostream>
+#include <iomanip>
+using namespace std;
+
+// ── Mostrar tabla de un Keyframe ─────────────────────────────
+static void imprimirCabecera() {
+    cout << "\n";
+    cout << "  " << string(82, '-') << "\n";
+    cout << "  "
+         << setw(4)  << left << "ID"     << " | "
+         << setw(12) << left << "ESCENA" << " | "
+         << setw(5)  << left << "FRAME"  << " | "
+         << setw(14) << left << "OBJETO" << " | "
+         << setw(17) << left << "POS (X, Y)"  << " | "
+         << setw(8)  << left << "ROT"    << " | "
+         << "EASE\n";
+    cout << "  " << string(82, '-') << "\n";
+}
+
+static void imprimirFila(const Keyframe& k) {
+    cout << "  "
+         << setw(4)  << left  << k.id      << " | "
+         << setw(12) << left  << k.escena  << " | "
+         << setw(5)  << right << k.frame   << " | "
+         << setw(14) << left  << k.objeto  << " | "
+         << "(" << setw(6) << fixed << setprecision(1) << k.posX
+         << ", " << setw(6) << k.posY << ") | "
+         << setw(6)  << k.rotacion << "deg | "
+         << k.ease << "\n";
+}
+
+// ============================================================
+//  BUSQUEDA SECUENCIAL POR OBJETO
+
+void buscarPorObjeto(const vector<Keyframe>& v,
+                     const string& objeto) {
+    if (v.empty()) {
+        cout << "  No hay keyframes cargados.\n";
+        return;
+    }
+
+    int encontrados = 0;
+    imprimirCabecera();
+
+    // Recorrido lineal O(n) — no requiere orden previo
+    for (int i = 0; i < (int)v.size(); i++) {
+        if (v[i].objeto == objeto) {
+            imprimirFila(v[i]);
+            encontrados++;
+        }
+    }
+
+    cout << "  " << string(82, '-') << "\n";
+
+    if (encontrados == 0)
+        cout << "  [Aviso] No se encontraron keyframes del objeto '"
+             << objeto << "'.\n";
+    else
+        cout << "  Keyframes encontrados: " << encontrados << "\n";
+}
+
+// ============================================================
+//  BUSQUEDA BINARIA ITERATIVA — Req. 2 (retorno multiple)
+
+ResultadoBusqueda buscarBinariaIterativa(
+    const vector<Keyframe>& v, int frameBuscado) {
+
+    ResultadoBusqueda res;
+    res.indice      = -1;
+    res.operaciones = 0;
+    res.encontrado  = false;
+
+    int inicio = 0;
+    int fin    = (int)v.size() - 1;
+
+    while (inicio <= fin) {
+        res.operaciones++;       // contar comparacion
+
+        int medio = (inicio + fin) / 2;
+
+        if (v[medio].frame == frameBuscado) {
+            res.indice     = medio;
+            res.encontrado = true;
+            break;
+        } else if (frameBuscado < v[medio].frame) {
+            fin    = medio - 1;  // buscar en mitad izq
+        } else {
+            inicio = medio + 1;  // buscar en mitad der
+        }
+    }
+
+    return res;   // retorno multiple via struct
+}
+
+// ============================================================
+//  BUSQUEDA BINARIA RECURSIVA 
+// ============================================================
+// Misma logica binaria pero con llamadas recursivas. Cada llamada representa una division del espacio de busqueda a la mitad.
+
+ResultadoBusqueda buscarBinariaRecursiva(
+    const vector<Keyframe>& v, int frameBuscado,
+    int inicio, int fin, int& llamadas) {
+
+    ResultadoBusqueda res;
+    res.indice     = -1;
+    res.encontrado = false;
+
+    llamadas++;                                  // contar esta llamada
+
+    // Caso base: subarreglo vacio — no encontrado
+    if (inicio > fin) {
+        res.operaciones = llamadas;
+        return res;
+    }
+
+    int medio = (inicio + fin) / 2;
+
+    if (v[medio].frame == frameBuscado) {
+        // Caso base exitoso: encontrado en la posicion 'medio'
+        res.indice      = medio;
+        res.encontrado  = true;
+        res.operaciones = llamadas;
+        return res;
+
+    } else if (frameBuscado < v[medio].frame) {
+        // Buscar recursivamente en la mitad izquierda
+        return buscarBinariaRecursiva(
+            v, frameBuscado, inicio, medio - 1, llamadas);
+
+    } else {
+        // Buscar recursivamente en la mitad derecha
+        return buscarBinariaRecursiva(
+            v, frameBuscado, medio + 1, fin, llamadas);
+    }
+}
+
+// ============================================================
+//  MOSTRAR RESULTADO DE BUSQUEDA
+// ============================================================
+
+void mostrarResultadoBusqueda(const vector<Keyframe>& v,
+                               const ResultadoBusqueda& res,
+                               const string& metodo) {
+    cout << "\n  Metodo: Busqueda binaria " << metodo << "\n";
+    cout << "  Operaciones realizadas: " << res.operaciones << "\n";
+
+    if (!res.encontrado) {
+        cout << "  Resultado: NO ENCONTRADO\n";
+        return;
+    }
+
+    cout << "  Resultado: ENCONTRADO en indice " << res.indice << "\n";
+
+    // Mostrar todos los keyframes con ese frame
+    // (puede haber varios objetos en el mismo frame)
+    imprimirCabecera();
+
+    int frame = v[res.indice].frame;
+    int izq   = res.indice;
+    int der   = res.indice;
+
+    while (izq > 0 && v[izq - 1].frame == frame) izq--;
+    while (der < (int)v.size() - 1 && v[der + 1].frame == frame) der++;
+
+    for (int i = izq; i <= der; i++) {
+        imprimirFila(v[i]);
+    }
+    cout << "  " << string(82, '-') << "\n";
+}
+
+// ============================================================
+//  MENU DE BUSQUEDA BINARIA (iterativa vs recursiva)
+// ============================================================
+
+void menuBusquedaBinaria(const vector<Keyframe>& v) {
+    if (v.empty()) {
+        cout << "  No hay keyframes cargados.\n";
+        return;
+    }
+
+    cout << "\n  === BUSQUEDA BINARIA — ITERATIVA vs RECURSIVA ===\n";
+    cout << "  [!] El vector debe estar ordenado (opcion 6).\n";
+    cout << "  Frame a buscar: ";
+    int frame;
+    cin >> frame;
+
+    // ── Iterativa ──────────────────────────────────────────
+    ResultadoBusqueda resIter = buscarBinariaIterativa(v, frame);
+    mostrarResultadoBusqueda(v, resIter, "ITERATIVA");
+
+    // ── Recursiva ──────────────────────────────────────────
+    int llamadas = 0;
+    ResultadoBusqueda resRec  = buscarBinariaRecursiva(
+        v, frame, 0, (int)v.size() - 1, llamadas);
+    mostrarResultadoBusqueda(v, resRec, "RECURSIVA");
+
+    // ── Comparacion ────────────────────────────────────────
+    cout << "\n  ── Comparacion de operaciones ─────────────────────\n";
+    cout << "  Iterativa : " << resIter.operaciones
+         << " comparaciones\n";
+    cout << "  Recursiva : " << resRec.operaciones
+         << " llamadas\n";
+
+    if (resIter.operaciones == resRec.operaciones) {
+        cout << "  Ambos metodos usaron el mismo numero de "
+             << "operaciones.\n";
+        cout << "  (Comportamiento esperado: misma logica, "
+             << "diferente forma.)\n";
+    }
+    cout << "\n";
+}
