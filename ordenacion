@@ -1,0 +1,247 @@
+#include "../include/ordenacion.h"
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <climits>
+using namespace std;
+
+//  BUBBLE SORT OPTIMIZADO CON METRICAS
+// Proposito : Ordena el vector por campo 'frame' (ascendente) usando Bubble Sort con bandera de optimizacion.
+//             Cuenta comparaciones e intercambios realizados.
+// Parametros: v - vector<Keyframe> por referencia
+// Retorno   : MetricaOrden con estadisticas del algoritmo
+
+MetricaOrden bubbleSortConMetrica(vector<Keyframe>& v) {
+    MetricaOrden m;
+    m.algoritmo     = "Bubble Sort optimizado";
+    m.comparaciones = 0;
+    m.intercambios  = 0;
+
+    int n = (int)v.size();
+    if (n <= 1) {
+        m.tiempoMs = 0;
+        return m;
+    }
+
+    clock_t inicio = clock();
+    bool huboIntercambio;
+
+    for (int i = 0; i < n - 1; i++) {
+        huboIntercambio = false;
+
+        for (int j = 0; j < n - 1 - i; j++) {
+            m.comparaciones++;                   // contar comparacion
+
+            if (v[j].frame > v[j + 1].frame) {
+                Keyframe temp = v[j];            // intercambio completo
+                v[j]          = v[j + 1];
+                v[j + 1]      = temp;
+                m.intercambios++;
+                huboIntercambio = true;
+            }
+        }
+
+        // Optimizacion: cortar si ya no hubo intercambios
+        if (!huboIntercambio) break;
+    }
+
+    clock_t fin = clock();
+    m.tiempoMs  = (double)(fin - inicio) / CLOCKS_PER_SEC * 1000.0;
+
+    return m;
+}
+
+// ============================================================
+//  MERGE SORT (INTERCALACION) CON METRICAS
+// ============================================================
+
+// ── Funcion auxiliar: fusionar dos mitades ───────────────────
+// Proposito : Fusiona v[izq..med] y v[med+1..der] en orden.
+//             Usa un vector temporal para la copia.
+// Parametros: v            - vector completo por referencia
+//             izq,med,der  - limites de las dos mitades
+//             comparaciones - contador por referencia
+
+void merge(vector<Keyframe>& v, int izq, int med, int der,
+           int& comparaciones) {
+    vector<Keyframe> izqArr(v.begin() + izq,
+                             v.begin() + med + 1);
+    vector<Keyframe> derArr(v.begin() + med + 1,
+                             v.begin() + der  + 1);
+
+    int i = 0, j = 0, k = izq;
+
+    while (i < (int)izqArr.size() && j < (int)derArr.size()) {
+        comparaciones++;                         // contar comparacion
+
+        if (izqArr[i].frame <= derArr[j].frame) {
+            v[k] = izqArr[i];
+            i++;
+        } else {
+            v[k] = derArr[j];
+            j++;
+        }
+        k++;
+    }
+
+    // Copiar restos de la mitad que quedo sin agotar
+    while (i < (int)izqArr.size()) { v[k] = izqArr[i]; i++; k++; }
+    while (j < (int)derArr.size()) { v[k] = derArr[j]; j++; k++; }
+}
+
+// ── Funcion recursiva principal de Merge Sort ────────────────
+// Proposito : Divide el subarreglo v[izq..der] a la mitad,
+//             ordena cada parte y luego las fusiona.
+// Parametros: v             - vector por referencia
+//             izq, der      - limites del subarreglo actual
+//             comparaciones - contador acumulado
+
+void mergeSort(vector<Keyframe>& v, int izq, int der,
+               int& comparaciones) {
+    if (izq >= der) return;         // caso base: un solo elemento
+
+    int med = (izq + der) / 2;
+
+    mergeSort(v, izq, med,   comparaciones);   // ordenar mitad izq
+    mergeSort(v, med + 1, der, comparaciones); // ordenar mitad der
+    merge(v, izq, med, der,  comparaciones);   // fusionar
+}
+
+// ── Punto de entrada publico de Merge Sort ───────────────────
+// Proposito : Envuelve mergeSort() midiendo el tiempo total.
+// Parametros: v - vector<Keyframe> por referencia
+// Retorno   : MetricaOrden con estadisticas del algoritmo
+
+MetricaOrden mergeSortConMetrica(vector<Keyframe>& v) {
+    MetricaOrden m;
+    m.algoritmo     = "Merge Sort (intercalacion)";
+    m.comparaciones = 0;
+    m.intercambios  = 0;   // Merge Sort no cuenta intercambios
+                            // directos; usa vector auxiliar
+
+    int n = (int)v.size();
+    if (n <= 1) {
+        m.tiempoMs = 0;
+        return m;
+    }
+
+    clock_t inicio = clock();
+    mergeSort(v, 0, n - 1, m.comparaciones);
+    clock_t fin = clock();
+    m.tiempoMs = (double)(fin - inicio) / CLOCKS_PER_SEC * 1000.0;
+
+    return m;
+}
+
+// ============================================================
+//  REPORTE COMPARATIVO
+// ============================================================
+// Proposito : Ejecuta ambos algoritmos sobre copias del vector
+//             original para no alterar el orden actual.
+//             Determina el ganador por menor cantidad de
+//             comparaciones (criterio principal).
+// Parametros: v - vector original (const, no se modifica)
+// Retorno   : ReporteComparativo con metricas de ambos
+
+ReporteComparativo reporteComparativoOrdenacion(
+    const vector<Keyframe>& v) {
+
+    ReporteComparativo reporte;
+
+    if (v.empty()) {
+        reporte.ganador = "Sin datos";
+        return reporte;
+    }
+
+    // Hacer una copia para cada algoritmo
+    vector<Keyframe> copia1 = v;
+    vector<Keyframe> copia2 = v;
+
+    reporte.burbuja       = bubbleSortConMetrica(copia1);
+    reporte.intercalacion = mergeSortConMetrica(copia2);
+
+    // Determinar ganador por comparaciones (criterio principal)
+    // En empate, gana el de menor tiempo
+    if (reporte.burbuja.comparaciones <
+        reporte.intercalacion.comparaciones) {
+        reporte.ganador = reporte.burbuja.algoritmo;
+    } else if (reporte.intercalacion.comparaciones <
+               reporte.burbuja.comparaciones) {
+        reporte.ganador = reporte.intercalacion.algoritmo;
+    } else {
+        // Empate en comparaciones: desempate por tiempo
+        if (reporte.burbuja.tiempoMs <=
+            reporte.intercalacion.tiempoMs) {
+            reporte.ganador = reporte.burbuja.algoritmo
+                              + " (empate, menor tiempo)";
+        } else {
+            reporte.ganador = reporte.intercalacion.algoritmo
+                              + " (empate, menor tiempo)";
+        }
+    }
+
+    return reporte;
+}
+
+// ============================================================
+//  MOSTRAR REPORTE EN PANTALLA
+// ============================================================
+// Proposito : Imprime el reporte comparativo con formato
+//             de tabla alineada en consola.
+// Parametros: r - ReporteComparativo con ambas metricas
+
+void mostrarReporteOrdenacion(const ReporteComparativo& r) {
+    cout << "\n";
+    cout << "  ╔═══════════════════════════════════════════════════════╗\n";
+    cout << "  ║         REPORTE COMPARATIVO DE ORDENACION            ║\n";
+    cout << "  ╚═══════════════════════════════════════════════════════╝\n";
+    cout << "\n";
+    cout << "  Campo ordenado: frame (int) — criterio: ascendente\n";
+    cout << "\n";
+    cout << "  " << string(57, '-') << "\n";
+    cout << "  " << left
+         << setw(30) << "Metrica"
+         << setw(14) << "Bubble Sort"
+         << setw(14) << "Merge Sort"
+         << "\n";
+    cout << "  " << string(57, '-') << "\n";
+
+    cout << "  " << left
+         << setw(30) << "Comparaciones realizadas"
+         << setw(14) << r.burbuja.comparaciones
+         << setw(14) << r.intercalacion.comparaciones
+         << "\n";
+
+    cout << "  " << left
+         << setw(30) << "Intercambios/movimientos"
+         << setw(14) << r.burbuja.intercambios
+         << setw(14) << "(usa aux.)"
+         << "\n";
+
+    cout << "  " << left
+         << setw(30) << "Tiempo de ejecucion (ms)"
+         << setw(14) << fixed << setprecision(4) << r.burbuja.tiempoMs
+         << setw(14) << r.intercalacion.tiempoMs
+         << "\n";
+
+    cout << "  " << string(57, '-') << "\n";
+    cout << "\n";
+    cout << "  GANADOR:  >> " << r.ganador << " <<\n";
+
+    // Conclusion tecnica
+    if (r.burbuja.comparaciones <= r.intercalacion.comparaciones) {
+        cout << "\n  Analisis: Bubble Sort fue mas eficiente en este caso.\n";
+        cout << "  Esto ocurre cuando los datos ya estan parcialmente\n";
+        cout << "  ordenados — la bandera 'huboIntercambio' termina\n";
+        cout << "  el recorrido antes de completar todas las pasadas.\n";
+    } else {
+        int diff = r.intercalacion.comparaciones;
+        int total = r.burbuja.comparaciones;
+        double pct = 100.0 * (total - diff) / total;
+        cout << "\n  Analisis: Merge Sort redujo las comparaciones un "
+             << fixed << setprecision(1) << pct << "%.\n";
+        cout << "  Esto confirma su complejidad O(n log n) vs O(n^2)\n";
+        cout << "  de Bubble Sort en datos desordenados.\n";
+    }
+    cout << "\n";
+}
