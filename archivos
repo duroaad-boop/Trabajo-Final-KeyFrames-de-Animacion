@@ -1,0 +1,126 @@
+//  archivos.cpp — Persistencia CSV + Seeding de datos
+#include "../include/archivos.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+using namespace std;
+
+// ── Auxiliar: separar linea CSV ────────────
+static vector<string> separarCSV(const string& linea) {
+    vector<string> campos;
+    stringstream ss(linea);
+    string campo;
+    while (getline(ss, campo, ','))
+        campos.push_back(campo);
+    return campos;
+}
+
+// ── cargarKeyframes ────────────────────────
+void cargarKeyframes(vector<Keyframe>& v,
+                     const string& nombreArchivo) {
+    ifstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        cout << "  [Aviso] No se encontro '" << nombreArchivo
+             << "'. Se inicia con lista vacia.\n";
+        return;
+    }
+
+    string linea;
+    int cargados = 0;
+    getline(archivo, linea); // saltar cabecera
+
+    while (getline(archivo, linea)) {
+        if (linea.empty() || linea[0] == '#') continue;
+        vector<string> c = separarCSV(linea);
+        if (c.size() != 10) continue;
+        try {
+            Keyframe k;
+            k.id       = stoi(c[0]);
+            k.escena   = c[1];
+            k.frame    = stoi(c[2]);
+            k.objeto   = c[3];
+            k.posX     = stof(c[4]);
+            k.posY     = stof(c[5]);
+            k.rotacion = stof(c[6]);
+            k.escalaX  = stof(c[7]);
+            k.escalaY  = stof(c[8]);
+            k.ease     = c[9];
+            v.push_back(k);
+            cargados++;
+        } catch (...) {
+            cout << "  [Aviso] Linea ignorada: " << linea << "\n";
+        }
+    }
+    archivo.close();
+    cout << "  " << cargados << " keyframe(s) cargados desde '"
+         << nombreArchivo << "'.\n";
+}
+
+// ── guardarKeyframes ──────────────
+void guardarKeyframes(const vector<Keyframe>& v,
+                      const string& nombreArchivo) {
+    ofstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        cout << "  [Error] No se pudo abrir '" << nombreArchivo
+             << "' para escritura.\n";
+        return;
+    }
+    archivo << "id,escena,frame,objeto,posX,posY,"
+               "rotacion,escalaX,escalaY,ease\n";
+    for (const Keyframe& k : v) {
+        archivo << k.id       << "," << k.escena   << ","
+                << k.frame    << "," << k.objeto    << ","
+                << k.posX     << "," << k.posY      << ","
+                << k.rotacion << "," << k.escalaX   << ","
+                << k.escalaY  << "," << k.ease      << "\n";
+    }
+    archivo.close();
+    cout << "  " << v.size() << " keyframe(s) guardados en '"
+         << nombreArchivo << "'.\n";
+}
+
+// ── mostrarArchivoCSV ───────────────
+void mostrarArchivoCSV(const string& nombreArchivo) {
+    ifstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        cout << "  [Aviso] Archivo '" << nombreArchivo
+             << "' no encontrado.\n";
+        return;
+    }
+    cout << "\n  Contenido de " << nombreArchivo << ":\n";
+    cout << "  " << string(60, '-') << "\n";
+    string linea;
+    while (getline(archivo, linea))
+        cout << "  " << linea << "\n";
+    cout << "  " << string(60, '-') << "\n";
+    archivo.close();
+}
+
+void seedDatos(vector<Keyframe>& v,
+               const string& nombreArchivo) {
+    if (!v.empty()) return;   // ya hay datos, no hacer nada
+
+    cout << "\n  [Seed] Primera ejecucion detectada.\n";
+    cout << "  Cargando 10 registros de prueba automaticamente...\n";
+
+    // 10 keyframes de prueba distribuidos en 3 escenas
+    Keyframe semilla[] = {
+        {1,"escena_01", 0,"personaje_A",100.0f,200.0f, 0.0f,1.0f,1.0f,"linear"},
+        {2,"escena_01",12,"personaje_A",150.0f,200.0f,15.0f,1.0f,1.0f,"ease_in"},
+        {3,"escena_01",24,"personaje_A",200.0f,180.0f, 0.0f,1.0f,1.0f,"ease_out"},
+        {4,"escena_01", 0,"camara",       0.0f,  0.0f, 0.0f,1.0f,1.0f,"linear"},
+        {5,"escena_01",48,"camara",       50.0f, 0.0f, 0.0f,1.0f,1.0f,"linear"},
+        {6,"escena_02", 0,"enemigo_B",  400.0f,150.0f,180.0f,1.2f,1.2f,"linear"},
+        {7,"escena_02", 8,"enemigo_B",  350.0f,150.0f,180.0f,1.2f,1.2f,"ease_in"},
+        {8,"escena_02",16,"enemigo_B",  300.0f,150.0f, 90.0f,1.0f,1.0f,"ease_out"},
+        {9,"boss_fight", 0,"boss",      500.0f,100.0f,  0.0f,2.0f,2.0f,"linear"},
+       {10,"boss_fight",30,"boss",      500.0f,100.0f, 45.0f,2.0f,2.0f,"ease_in"},
+    };
+
+    for (int i = 0; i < 10; i++)
+        v.push_back(semilla[i]);
+
+    guardarKeyframes(v, nombreArchivo);
+    cout << "  [Seed] 10 registros cargados y guardados en '"
+         << nombreArchivo << "'.\n\n";
+}
