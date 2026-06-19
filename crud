@@ -1,0 +1,123 @@
+// ============================================================
+//  crud.cpp — CRUD completo sobre vector<Keyframe>
+// ============================================================
+
+#include "../include/crud.h"
+#include <iostream>
+#include <iomanip>
+using namespace std;
+
+int generarNuevoId(const vector<Keyframe>& v) {
+    if (v.empty()) return 1;
+    int maxId = v[0].id;
+    for (int i = 1; i < (int)v.size(); i++)
+        if (v[i].id > maxId) maxId = v[i].id;
+    return maxId + 1;
+}
+
+void mostrarKeyframe(const Keyframe& k) {
+    cout << "  "
+         << setw(4)  << left  << k.id      << " | "
+         << setw(12) << left  << k.escena  << " | "
+         << setw(5)  << right << k.frame   << " | "
+         << setw(14) << left  << k.objeto  << " | "
+         << "("  << setw(6) << fixed << setprecision(1) << k.posX
+         << ", " << setw(6) << k.posY << ") | "
+         << setw(6) << k.rotacion << "deg | "
+         << k.ease << "\n";
+}
+
+static void cabecera() {
+    cout << "\n  " << string(82, '-') << "\n";
+    cout << "  " << left
+         << setw(4)  << "ID"     << " | "
+         << setw(12) << "ESCENA" << " | "
+         << setw(5)  << "FRAME"  << " | "
+         << setw(14) << "OBJETO" << " | "
+         << setw(17) << "POS (X, Y)"   << " | "
+         << setw(8)  << "ROT"    << " | EASE\n";
+    cout << "  " << string(82, '-') << "\n";
+}
+
+void agregarKeyframe(vector<Keyframe>& v) {
+    Keyframe k;
+    cout << "\n  === AGREGAR KEYFRAME ===\n";
+    k.id = generarNuevoId(v);
+    cout << "  ID asignado: " << k.id << "\n";
+    cout << "  Escena    : "; cin >> k.escena;
+    cout << "  Frame     : "; cin >> k.frame;
+    cout << "  Objeto    : "; cin >> k.objeto;
+    cout << "  Pos X     : "; cin >> k.posX;
+    cout << "  Pos Y     : "; cin >> k.posY;
+    cout << "  Rotacion  : "; cin >> k.rotacion;
+    cout << "  Escala X  : "; cin >> k.escalaX;
+    cout << "  Escala Y  : "; cin >> k.escalaY;
+    cout << "  Ease      : "; cin >> k.ease;
+    v.push_back(k);
+    cout << "  [OK] Keyframe ID " << k.id << " agregado.\n";
+}
+
+void eliminarKeyframe(vector<Keyframe>& v) {
+    if (v.empty()) { cout << "  No hay keyframes.\n"; return; }
+    cout << "\n  === ELIMINAR KEYFRAME ===\n";
+    cout << "  ID a eliminar: ";
+    int id; cin >> id;
+    for (int i = 0; i < (int)v.size(); i++) {
+        if (v[i].id == id) {
+            cout << "  Eliminando ID " << id << "...\n";
+            v.erase(v.begin() + i);
+            cout << "  [OK] Eliminado.\n";
+            return;
+        }
+    }
+    cout << "  [Aviso] ID " << id << " no encontrado.\n";
+}
+
+void modificarKeyframe(vector<Keyframe>& v) {
+    if (v.empty()) { cout << "  No hay keyframes.\n"; return; }
+    cout << "\n  === MODIFICAR KEYFRAME ===\n";
+    cout << "  ID a modificar: ";
+    int id; cin >> id;
+    for (Keyframe& k : v) {
+        if (k.id == id) {
+            cout << "  Nuevos valores:\n";
+            cout << "  Escena    [" << k.escena   << "]: "; cin >> k.escena;
+            cout << "  Frame     [" << k.frame    << "]: "; cin >> k.frame;
+            cout << "  Objeto    [" << k.objeto   << "]: "; cin >> k.objeto;
+            cout << "  Pos X     [" << k.posX     << "]: "; cin >> k.posX;
+            cout << "  Pos Y     [" << k.posY     << "]: "; cin >> k.posY;
+            cout << "  Rotacion  [" << k.rotacion << "]: "; cin >> k.rotacion;
+            cout << "  Escala X  [" << k.escalaX  << "]: "; cin >> k.escalaX;
+            cout << "  Escala Y  [" << k.escalaY  << "]: "; cin >> k.escalaY;
+            cout << "  Ease      [" << k.ease     << "]: "; cin >> k.ease;
+            cout << "  [OK] Keyframe ID " << id << " modificado.\n";
+            return;
+        }
+    }
+    cout << "  [Aviso] ID " << id << " no encontrado.\n";
+}
+
+void listarTodos(const vector<Keyframe>& v) {
+    if (v.empty()) { cout << "  No hay keyframes.\n"; return; }
+    cout << "\n  === TODOS LOS KEYFRAMES (" << v.size() << ") ===";
+    cabecera();
+    for (const Keyframe& k : v) mostrarKeyframe(k);
+    cout << "  " << string(82, '-') << "\n";
+}
+
+void listarPorEscena(const vector<Keyframe>& v) {
+    if (v.empty()) { cout << "  No hay keyframes.\n"; return; }
+    cout << "\n  === LISTAR POR ESCENA ===\n";
+    cout << "  Nombre de escena: ";
+    string escena; cin >> escena;
+    int encontrados = 0;
+    cabecera();
+    for (const Keyframe& k : v) {
+        if (k.escena == escena) { mostrarKeyframe(k); encontrados++; }
+    }
+    cout << "  " << string(82, '-') << "\n";
+    if (encontrados == 0)
+        cout << "  [Aviso] No hay keyframes en '" << escena << "'.\n";
+    else
+        cout << "  Total: " << encontrados << "\n";
+}
