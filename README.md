@@ -12,9 +12,8 @@
 | **Asignatura** | Programación I — SIS-112 |
 | **Docente** | Pamela Shirley Valenzuela Fernández |
 | **Gestión** | 1/2026 — Semana 19 |
-| **Integrante 1** | Estudiante Uno |
-| **Integrante 2** | Estudiante Dos |
-| **Carrera** | Ingeniería de Sistemas |
+| **Integrante 1** | Adrian Alejandro Durán Charcas |
+| **Carrera** | Diseño Digital |
 | **Repositorio** | https://github.com/usuario/GestorKeyframes |
 
 ---
