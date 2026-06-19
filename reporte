@@ -1,0 +1,451 @@
+// ============================================================
+//  reporte.cpp — Generador de reporte PDF/HTML
+//  Requisito 5b — 10 puntos
+// ============================================================
+
+#include "../include/reporte.h"
+#include <fstream>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <ctime>
+using namespace std;
+
+// ── Auxiliar: fecha y hora actual como string ─────────────────
+static string obtenerFechaHora() {
+    time_t ahora = time(nullptr);
+    struct tm* t = localtime(&ahora);
+    char buf[64];
+    strftime(buf, sizeof(buf), "%d/%m/%Y  %H:%M:%S", t);
+    return string(buf);
+}
+
+// ── Auxiliar: float a string con 1 decimal ────────────────────
+static string f1(float v) {
+    ostringstream ss;
+    ss << fixed << setprecision(1) << v;
+    return ss.str();
+}
+
+
+void generarReporteHTML(const vector<Keyframe>& v,
+                         const ReporteComparativo& rep,
+                         const string& nombreArchivo) {
+    ofstream f(nombreArchivo);
+    if (!f.is_open()) {
+        cout << "  [Error] No se pudo crear '" << nombreArchivo << "'.\n";
+        return;
+    }
+
+    string fecha = obtenerFechaHora();
+
+    f << R"(<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte — Gestor de Keyframes</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #1a1a2e;
+    padding: 20px 30px;
+    background: #fff;
+  }
+  /* ── Caratula ── */
+  .caratula {
+    text-align: center;
+    border: 2px solid #1a1a2e;
+    padding: 20px;
+    margin-bottom: 24px;
+    border-radius: 4px;
+  }
+  .caratula h1 {
+    font-size: 18px;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .caratula h2 {
+    font-size: 13px;
+    font-weight: normal;
+    color: #444;
+    margin-bottom: 14px;
+  }
+  .caratula table {
+    margin: 0 auto;
+    border-collapse: collapse;
+  }
+  .caratula td {
+    padding: 3px 16px;
+    font-size: 11px;
+  }
+  .caratula td:first-child { font-weight: bold; text-align: right; }
+  // ── Secciones ── //
+  .seccion {
+    margin-bottom: 20px;
+  }
+  .seccion-titulo {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  // ── Tabla de keyframes ── //
+  table.datos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+  }
+  table.datos th {
+    background: #2c2c54;
+    color: #fff;
+    padding: 5px 6px;
+    text-align: left;
+    font-weight: bold;
+  }
+  table.datos td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #ddd;
+  }
+  table.datos tr:nth-child(even) { background: #f5f5f5; }
+  table.datos tr:hover           { background: #eef2ff; }
+  // ── Reporte comparativo ── //
+  table.comp {
+    border-collapse: collapse;
+    margin: 0 auto;
+    font-size: 11px;
+  }
+  table.comp th {
+    background: #2c2c54;
+    color: #fff;
+    padding: 5px 20px;
+    text-align: center;
+  }
+  table.comp td {
+    padding: 5px 20px;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+  }
+  table.comp td:first-child { text-align: left; font-weight: bold; }
+  .ganador {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #1a1a2e;
+    border: 1.5px solid #1a1a2e;
+    padding: 6px 16px;
+    display: inline-block;
+    border-radius: 4px;
+  }
+  .ganador-box { text-align: center; margin-top: 8px; }
+  // ── Pie ── //
+  .pie {
+    margin-top: 24px;
+    border-top: 1px solid #aaa;
+    padding-top: 8px;
+    font-size: 10px;
+    color: #777;
+    display: flex;
+    justify-content: space-between;
+  }
+  // ── Estadisticas ── //
+  .stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 6px;
+  }
+  .stat-box {
+    flex: 1;
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .stat-num  { font-size: 22px; font-weight: bold; color: #2c2c54; }
+  .stat-label{ font-size: 10px; color: #666; margin-top: 2px; }
+  // ── Impresion ── //
+  @media print {
+    body { padding: 10px 20px; }
+    .no-print { display: none; }
+    table.datos tr:hover { background: none; }
+    @page { margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+)";
+
+    // ── Caratula ──────────────────────────────────────────────
+    f << R"(
+<div class="caratula">
+  <h1>GESTOR DE ESCENAS Y KEYFRAMES DE ANIMACI&Oacute;N</h1>
+  <h2>Reporte de datos del sistema</h2>
+  <table>
+    <tr><td>Asignatura:</td><td>Programaci&oacute;n I &mdash; SIS-112</td></tr>
+    <tr><td>Docente:</td><td>Pamela Shirley Valenzuela Fern&aacute;ndez</td></tr>
+    <tr><td>Integrante 1:</td><td>Estudiante Uno</td></tr>
+    <tr><td>Integrante 2:</td><td>Estudiante Dos</td></tr>
+    <tr><td>Carrera:</td><td>Ingenier&iacute;a de Sistemas &mdash; UCB San Pablo</td></tr>
+    <tr><td>Gesti&oacute;n:</td><td>1/2026</td></tr>
+  </table>
+</div>
+)";
+
+    // ── Estadísticas generales ────────────────────────────────
+    // Contar escenas únicas
+    int totalFrames = 0;
+    string escenaActual = "";
+    int escenas = 0;
+    for (const Keyframe& k : v) {
+        totalFrames = max(totalFrames, k.frame);
+        if (k.escena != escenaActual) { escenas++; escenaActual = k.escena; }
+    }
+
+    f << "<div class=\"seccion\">\n";
+    f << "<div class=\"seccion-titulo\">ESTAD&Iacute;STICAS GENERALES</div>\n";
+    f << "<div class=\"stats\">\n";
+    f << "  <div class=\"stat-box\"><div class=\"stat-num\">"
+      << v.size() << "</div><div class=\"stat-label\">Total de Keyframes</div></div>\n";
+    f << "  <div class=\"stat-box\"><div class=\"stat-num\">"
+      << escenas << "</div><div class=\"stat-label\">Escenas registradas</div></div>\n";
+    f << "  <div class=\"stat-box\"><div class=\"stat-num\">"
+      << totalFrames << "</div><div class=\"stat-label\">Frame m&aacute;ximo</div></div>\n";
+    f << "</div>\n</div>\n";
+
+    // ── Tabla de keyframes ────────────────────────────────────
+    f << "<div class=\"seccion\">\n";
+    f << "<div class=\"seccion-titulo\">LISTADO COMPLETO DE KEYFRAMES</div>\n";
+    f << "<table class=\"datos\">\n";
+    f << "<tr><th>ID</th><th>Escena</th><th>Frame</th><th>Objeto</th>"
+         "<th>Pos X</th><th>Pos Y</th><th>Rotaci&oacute;n</th>"
+         "<th>Escala X</th><th>Escala Y</th><th>Ease</th></tr>\n";
+
+    for (const Keyframe& k : v) {
+        f << "<tr>"
+          << "<td>" << k.id       << "</td>"
+          << "<td>" << k.escena   << "</td>"
+          << "<td>" << k.frame    << "</td>"
+          << "<td>" << k.objeto   << "</td>"
+          << "<td>" << f1(k.posX)     << "</td>"
+          << "<td>" << f1(k.posY)     << "</td>"
+          << "<td>" << f1(k.rotacion) << "&deg;</td>"
+          << "<td>" << f1(k.escalaX)  << "</td>"
+          << "<td>" << f1(k.escalaY)  << "</td>"
+          << "<td>" << k.ease     << "</td>"
+          << "</tr>\n";
+    }
+    f << "</table>\n</div>\n";
+
+    // ── Reporte comparativo de ordenacion ─────────────────────
+    if (!rep.ganador.empty() && rep.ganador != "Sin datos") {
+        f << "<div class=\"seccion\">\n";
+        f << "<div class=\"seccion-titulo\">REPORTE COMPARATIVO DE ORDENACI&Oacute;N</div>\n";
+        f << "<table class=\"comp\">\n";
+        f << "<tr><th>M&eacute;trica</th>"
+             "<th>Bubble Sort</th><th>Merge Sort</th></tr>\n";
+        f << "<tr><td>Comparaciones realizadas</td>"
+          << "<td>" << rep.burbuja.comparaciones       << "</td>"
+          << "<td>" << rep.intercalacion.comparaciones << "</td></tr>\n";
+        f << "<tr><td>Intercambios / movimientos</td>"
+          << "<td>" << rep.burbuja.intercambios        << "</td>"
+          << "<td>usa vector aux.</td></tr>\n";
+        f << "<tr><td>Tiempo de ejecuci&oacute;n (ms)</td>"
+          << "<td>" << fixed << setprecision(4) << rep.burbuja.tiempoMs       << "</td>"
+          << "<td>" << rep.intercalacion.tiempoMs << "</td></tr>\n";
+        f << "</table>\n";
+        f << "<div class=\"ganador-box\">"
+             "<span class=\"ganador\">GANADOR: "
+          << rep.ganador << "</span></div>\n";
+        f << "</div>\n";
+    }
+
+    // ── Instrucciones de impresion (no se imprime) ────────────
+    f << R"(
+<div class="no-print" style="margin-top:16px;padding:10px;background:#fffbe6;
+     border:1px solid #f0c040;border-radius:4px;font-size:11px;color:#555;">
+  <strong>Para exportar como PDF:</strong>
+  Abrir este archivo en el navegador &rarr; Ctrl+P (o Cmd+P en Mac)
+  &rarr; Destino: "Guardar como PDF" &rarr; Guardar.
+</div>
+)";
+
+    // ── Pie de página ─────────────────────────────────────────
+    f << "<div class=\"pie\">\n";
+    f << "  <span>Generado el: " << fecha << "</span>\n";
+    f << "  <span>Gestor de Keyframes v2.0 &mdash; SIS-112 UCB San Pablo</span>\n";
+    f << "</div>\n";
+
+    f << "</body>\n</html>\n";
+    f.close();
+
+    cout << "  [OK] Reporte HTML generado: '" << nombreArchivo << "'\n";
+}
+
+// ============================================================
+//  REPORTE POSTSCRIPT (convertible a PDF con ps2pdf)
+// ============================================================
+// Proposito : Genera un .ps (PostScript) con el listado
+//             tabulado de keyframes. PostScript es texto plano
+//             estandar que cualquier conversor puede leer.
+//             Sin dependencias externas en C++.
+// Parametros: v             - vector<Keyframe>
+//             nombreArchivo - ruta del .ps a generar
+
+void generarReportePS(const vector<Keyframe>& v,
+                       const string& nombreArchivo) {
+    ofstream f(nombreArchivo);
+    if (!f.is_open()) {
+        cout << "  [Error] No se pudo crear '" << nombreArchivo << "'.\n";
+        return;
+    }
+
+    // Encabezado PostScript
+    f << "%!PS-Adobe-3.0\n";
+    f << "%%Title: Reporte Keyframes SIS-112\n";
+    f << "%%Creator: GestorKeyframes v2.0\n";
+    f << "%%CreationDate: " << obtenerFechaHora() << "\n";
+    f << "%%Pages: 1\n";
+    f << "%%EndComments\n\n";
+
+    // Definir fuentes y helpers
+    f << "/Helvetica-Bold findfont 14 scalefont setfont\n\n";
+
+    // Coordenadas: origen PostScript en esquina inferior izquierda
+    // Pagina carta: 612 x 792 puntos
+    int pageW = 612, pageH = 792;
+    int margen = 40;
+    int y = pageH - margen;      // empezar desde arriba
+
+    // ── Titulo ──────────
+    f << pageW / 2 << " " << y - 5 << " moveto\n";
+    f << "/Helvetica-Bold findfont 13 scalefont setfont\n";
+    f << "(GESTOR DE KEYFRAMES DE ANIMACION) dup stringwidth pop 2 div neg 0 rmoveto show\n";
+    y -= 18;
+    f << "/Helvetica findfont 9 scalefont setfont\n";
+    f << pageW / 2 << " " << y << " moveto\n";
+    f << "(Programacion I - SIS-112  |  UCB San Pablo  |  2026) "
+         "dup stringwidth pop 2 div neg 0 rmoveto show\n";
+    y -= 6;
+
+    // Linea separadora
+    f << margen << " " << y << " moveto " << pageW - margen << " " << y << " lineto stroke\n";
+    y -= 14;
+
+    // ── Cabecera de columnas ──────────────
+    f << "/Helvetica-Bold findfont 8 scalefont setfont\n";
+    // Columnas: ID(30) Escena(80) Frame(40) Objeto(90) PosX(45) PosY(45) Rot(40) EscX(35) EscY(35) Ease(60)
+    int cols[] = { 40, 80, 40, 90, 45, 45, 40, 35, 35, 60 };
+    const char* hdrs[] = { "ID","Escena","Frame","Objeto","PosX","PosY","Rot","EscX","EscY","Ease" };
+    int xc = margen;
+    for (int i = 0; i < 10; i++) {
+        f << xc << " " << y << " moveto (" << hdrs[i] << ") show\n";
+        xc += cols[i];
+    }
+    y -= 4;
+    f << margen << " " << y << " moveto " << pageW - margen << " " << y << " lineto stroke\n";
+    y -= 11;
+
+    // ── Filas de datos ──────
+    f << "/Helvetica findfont 7.5 scalefont setfont\n";
+
+    for (const Keyframe& k : v) {
+        if (y < margen + 30) {
+            // Nueva pagina si se acaba el espacio
+            f << "showpage\n";
+            y = pageH - margen;
+        }
+
+        xc = margen;
+        // Cada campo como string PostScript
+        string campos[] = {
+            to_string(k.id),
+            k.escena,
+            to_string(k.frame),
+            k.objeto,
+            f1(k.posX),
+            f1(k.posY),
+            f1(k.rotacion),
+            f1(k.escalaX),
+            f1(k.escalaY),
+            k.ease
+        };
+
+        for (int i = 0; i < 10; i++) {
+            // Truncar si es muy largo para la columna
+            string txt = campos[i];
+            if ((int)txt.size() > cols[i] / 6)
+                txt = txt.substr(0, cols[i] / 6 - 1) + ".";
+            f << xc << " " << y << " moveto (" << txt << ") show\n";
+            xc += cols[i];
+        }
+        y -= 10;
+
+        // Linea divisoria fina cada fila
+        f << "0.8 setgray\n";
+        f << margen << " " << y + 2 << " moveto "
+          << pageW - margen << " " << y + 2 << " lineto stroke\n";
+        f << "0 setgray\n";
+    }
+
+    // ── Pie ─────────────
+    y = margen;
+    f << "0.5 setgray\n";
+    f << margen << " " << y + 10 << " moveto " << pageW - margen << " "
+      << y + 10 << " lineto stroke\n";
+    f << "0 setgray\n";
+    f << "/Helvetica findfont 7 scalefont setfont\n";
+    f << margen << " " << y << " moveto (Generado: " << obtenerFechaHora()
+      << "  |  Total: " << v.size() << " keyframes) show\n";
+
+    f << "showpage\n";
+    f << "%%EOF\n";
+    f.close();
+
+    cout << "  [OK] Reporte PostScript generado: '" << nombreArchivo << "'\n";
+    cout << "  Para convertir a PDF ejecuta:\n";
+    cout << "    ps2pdf " << nombreArchivo << " data/reporte.pdf\n";
+}
+
+// ============================================================
+//  MENU DE GENERACION DE REPORTE
+// ============================================================
+
+void menuGenerarReporte(const vector<Keyframe>& v,
+                         const ReporteComparativo& rep) {
+    if (v.empty()) {
+        cout << "  No hay keyframes para generar el reporte.\n";
+        return;
+    }
+
+    cout << "\n  === GENERAR REPORTE ===\n";
+    cout << "  Total de keyframes a incluir: " << v.size() << "\n\n";
+    cout << "  Formato:\n";
+    cout << "    1. HTML  (recomendado → abrir en navegador → Ctrl+P → PDF)\n";
+    cout << "    2. PostScript (.ps → convertir con ps2pdf)\n";
+    cout << "    3. Ambos\n";
+    cout << "  Opcion: ";
+
+    int op; cin >> op;
+
+    if (op == 1 || op == 3) {
+        generarReporteHTML(v, rep, "data/reporte.html");
+        cout << "  Instrucciones:\n";
+        cout << "    1. Abrir 'data/reporte.html' en Chrome o Firefox\n";
+        cout << "    2. Presionar Ctrl+P  (Cmd+P en Mac)\n";
+        cout << "    3. En 'Destino' elegir 'Guardar como PDF'\n";
+        cout << "    4. Click en 'Guardar'\n";
+    }
+
+    if (op == 2 || op == 3) {
+        generarReportePS(v, "data/reporte.ps");
+    }
+
+    if (op < 1 || op > 3) {
+        cout << "  [Error] Opcion invalida.\n";
+    }
+}
